@@ -137,3 +137,23 @@ RAG is attention at the **system level.**
 Both ask: *"Given this query, what information is most relevant?"*
 
 
+## Day 2 — Vector Databases + ChromaDB
+
+**Why vector DBs exist:** Normal DBs can't measure similarity 
+between vectors. Vector DBs are built specifically for 
+"find me the most similar vectors fast."
+
+**What's inside a vector DB:** ID + Vector + Metadata + Index
+
+**HNSW:** Hierarchical Navigable Small World. Like Google Maps — 
+navigate in layers from highway → local street. 
+Checks ~50 vectors instead of 1 million.
+
+**ChromaDB vs Pinecone:** ChromaDB = local dev. 
+Pinecone = cloud production.
+
+**The semantic search moment:** Different words, same meaning → 
+still retrieves correct chunks. Meaning over keywords.
+
+**This is RAG steps 3 & 4:** Embed → Store → Query by similarity.
+
