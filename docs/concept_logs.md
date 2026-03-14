@@ -1,48 +1,49 @@
 # 📚 DocuMind — Concept Log
-
----
-
 ## Day 1 — RAG Fundamentals + Transformer Attention
-
-**Date: 11/03/2026** Day 1 of 21
+**Date:** Day 1 of 21
 
 ---
 
 ### 🔍 What is RAG & Why It Exists
 
 **The problem:**
-LLMs are frozen in time. They have no access to private or recently updated documents. Pasting docs into prompts doesn't scale — context windows overflow, costs explode, hallucinations persist.
+LLMs are frozen in time. They have no access to private or recently
+updated documents. Pasting docs into prompts doesn't scale —
+context windows overflow, costs explode, hallucinations persist.
 
 **The solution — RAG (Retrieval Augmented Generation):**
-Instead of baking knowledge into weights, retrieve relevant context at query time and inject it into the prompt. LLM answers from evidence, not memory.
+Instead of baking knowledge into weights, retrieve relevant context
+at query time and inject it into the prompt. LLM answers from
+evidence, not memory.
 
 **The 7-step RAG pipeline:**
-
 ```
+OFFLINE:
 Ingestion → Chunking → Embedding → Storage
-                                      ↓
-Question → Embed question → Retrieve top-K chunks → Augment prompt → Generate answer
+
+ONLINE (per query):
+User Question → Embed Question → Retrieve top-K chunks → Augment prompt → Generate answer
 ```
 
 **Where naive RAG breaks:**
-
-| Failure         | Why                               |
-| --------------- | --------------------------------- |
-| Bad chunking    | Cuts mid-sentence, loses context  |
-| Wrong retrieval | Close in words, wrong in meaning  |
-| No reranking    | First pass is never perfect       |
+| Failure | Why |
+|---------|-----|
+| Bad chunking | Cuts mid-sentence, loses context |
+| Wrong retrieval | Close in words, wrong in meaning |
+| No reranking | First pass is never perfect |
 | Tables & images | Embeddings can't handle structure |
-| No evaluation   | Never know if hallucinating       |
+| No evaluation | Never know if hallucinating |
 
 ---
 
 ### 🧮 What is an Embedding
 
-A word, sentence or paragraph converted into a list of numbers that captures its **meaning.**
+A word, sentence or paragraph converted into a list of numbers
+that captures its meaning.
 
 ```
 "The cat sat on the mat"  →  [0.21, -0.54, 0.89, ...]
-"A kitten rested on rug"  →  [0.19, -0.51, 0.91, ...]  ← similar numbers = similar meaning
+"A kitten rested on rug"  →  [0.19, -0.51, 0.91, ...]  ← similar meaning
 "Quantum physics paper"   →  [-0.87, 0.33, -0.21, ...]  ← very different
 ```
 
@@ -53,13 +54,13 @@ RAG retrieval = find chunks whose vectors are closest to the question vector.
 
 ### 🆚 RAG vs Fine-tuning
 
-|               | RAG                          | Fine-tuning                   |
-| ------------- | ---------------------------- | ----------------------------- |
-| What          | External docs at query time  | Bakes knowledge into weights  |
-| When          | Knowledge changes frequently | Behavior/style changes needed |
-| Cost          | Low                          | High — GPU retraining         |
-| Updatable     | Yes — just add docs          | No — full retrain             |
-| Hallucination | Lower — grounded             | Still possible                |
+| | RAG | Fine-tuning |
+|--|-----|-------------|
+| What | External docs at query time | Bakes knowledge into weights |
+| When | Knowledge changes frequently | Behavior/style changes needed |
+| Cost | Low | High — GPU retraining |
+| Updatable | Yes — just add docs | No — full retrain |
+| Hallucination | Lower — grounded | Still possible |
 
 **Rule:** Knowledge changes → RAG. Behavior changes → Fine-tune.
 
@@ -69,91 +70,331 @@ RAG retrieval = find chunks whose vectors are closest to the question vector.
 
 **Why attention exists:**
 RNNs forgot long-range context (word 1 lost by word 50).
-Attention lets every word look at every other word **simultaneously.**
+Attention lets every word look at every other word simultaneously.
 
 **The library analogy:**
-
 ```
-Query  = your sticky note (what am I looking for?)
-Key    = book spine label (what do I represent?)
+Query  = your sticky note  (what am I looking for?)
+Key    = book spine label  (what do I represent?)
 Value  = actual book content (what do I give if selected?)
 ```
 
-**The mechanism:**
+**The full mechanism:**
+```
+Step 1: Every word gets Q, K, V vectors via learned matrices W_Q, W_K, W_V
+Step 2: Q · K = raw relevance scores for every word pair
+Step 3: Divide by √d = scale down so scores don't explode with dimensions
+Step 4: Softmax = convert scores to probabilities that sum to 1
+Step 5: Weighted sum of V vectors = updated word representation
+```
 
+**What √d does:**
+Without it — scores explode as vector dimensions grow.
+Large scores → softmax gives one word 97% attention → model stops learning.
+Dividing by √d keeps scores in manageable range regardless of dimensions.
+
+**What Softmax does:**
+Converts raw scores into probabilities.
 ```
-1. Every word gets Q, K, V vectors via learned weight matrices W_Q, W_K, W_V
-2. Q · K = relevance scores for every word pair
-3. Divide by √dimension → numerical stability
-4. Softmax → attention weights (sum to 1)
-5. Weighted sum of V vectors → updated word representation
+Raw:           [8.4,  7.9,  7.2]
+After softmax: [0.72, 0.21, 0.07]  ← sum = 1.0
 ```
+Not standardization — probability conversion.
 
 **Critical insight:**
-Q, K, V are NOT the word itself — they are **learned projections.**
+Q, K, V are NOT the word itself — they are learned projections.
 Same word, 3 different jobs, 3 different representations.
 
 ---
 
-### 🏗️ Attention + MLP Stack (The "Deep" in Deep Learning)
+### 🏗️ Attention + MLP Stack
 
 **The backpack analogy:**
 Every word carries a backpack (its vector).
 
-* **Attention** = everyone opens each other's backpacks and copies what's relevant into their own
-* **MLP** = each word goes back to their desk and processes what's now in their backpack — alone
+```
+Attention = everyone opens each other's backpacks,
+            copies what's relevant into their own
+MLP       = each word goes to their desk alone,
+            processes what's now in their backpack
+```
 
 **Why context is preserved without MLP communication:**
-Context doesn't travel DURING MLP — it already traveled DURING attention.
+Context doesn't travel DURING MLP.
+It already traveled DURING attention.
 By the time a vector hits MLP, it already contains other words' information.
 
 **The floor-by-floor rhythm:**
-
 ```
 Attention → "everyone share backpacks"
 MLP       → "think alone about what you collected"
 Attention → "share again — richer now"
-MLP       → "think alone — deeper"
+MLP       → "think alone — deeper this time"
 ... × 32 floors in Mistral 7B ...
 ```
 
 **Why the LAST vector predicts the next word:**
-After 32 floors of attention, the last vector has absorbed context from every other word.
-It started as just "in" — it ends as a rich summary of the entire input.
+After 32 floors of attention, the last vector has absorbed
+context from every other word in the sequence.
+It started as just "in" — ends as a rich summary of entire input.
 
 ---
 
-### 🔗 Connection — Attention inside LLM vs RAG outside LLM
+### 🔗 Connection — Attention vs RAG
 
-| Attention (inside LLM) | RAG (system level)             |
-| ---------------------- | ------------------------------ |
-| Query vector           | User question embedding        |
-| Key vectors            | Chunk embeddings in vector DB  |
-| Dot product            | Cosine similarity search       |
-| Softmax weights        | Relevance scores               |
-| Value aggregation      | Retrieved chunks passed to LLM |
+| Attention (inside LLM) | RAG (system level) |
+|------------------------|-------------------|
+| Query vector | User question embedding |
+| Key vectors | Chunk embeddings in vector DB |
+| Dot product | Cosine similarity search |
+| Softmax weights | Relevance scores |
+| Value aggregation | Retrieved chunks passed to LLM |
 
-RAG is attention at the **system level.**
-Both ask: *"Given this query, what information is most relevant?"*
+**RAG is attention at the system level.**
+Both ask: "Given this query, what information is most relevant?"
 
+---
 
 ## Day 2 — Vector Databases + ChromaDB
+**Date:** Day 2 of 21
 
-**Why vector DBs exist:** Normal DBs can't measure similarity 
-between vectors. Vector DBs are built specifically for 
-"find me the most similar vectors fast."
+---
 
-**What's inside a vector DB:** ID + Vector + Metadata + Index
+### 🗄️ Why Vector Databases Exist
 
-**HNSW:** Hierarchical Navigable Small World. Like Google Maps — 
-navigate in layers from highway → local street. 
-Checks ~50 vectors instead of 1 million.
+Normal databases store exact values.
+They can do exact match, greater than, less than.
+But they have NO concept of similarity between vectors.
+1 million chunks = 1 million brute force comparisons = too slow.
 
-**ChromaDB vs Pinecone:** ChromaDB = local dev. 
-Pinecone = cloud production.
+Vector databases are built for one job:
+"Given this vector, find me the most similar vectors — fast."
 
-**The semantic search moment:** Different words, same meaning → 
-still retrieves correct chunks. Meaning over keywords.
+**The magical library analogy:**
+Normal library = organised by category + alphabetically.
+Vector DB = every book has a GPS coordinate in meaning-space.
+Similar books are physically close to each other.
+Query = get a GPS coordinate → walk to it → grab nearest books.
 
-**This is RAG steps 3 & 4:** Embed → Store → Query by similarity.
+---
 
+### ⚙️ What's Inside a Vector DB
+
+```
+ID      Vector                    Metadata
+----    ------                    --------
+001     [0.21, -0.54, 0.89...]    {source: pdf1, page: 3}
+002     [0.19, -0.51, 0.91...]    {source: pdf2, page: 7}
+003     [-0.87, 0.33, -0.21...]   {source: pdf1, page: 12}
+
++ INDEX (the magic fast-lookup layer)
+```
+
+---
+
+### 🗺️ HNSW — How Fast Lookup Works
+
+HNSW = Hierarchical Navigable Small World
+
+Like Google Maps navigation — works in layers:
+```
+Layer 3 (highways)      → get close to destination fast
+Layer 2 (main roads)    → narrow down the area
+Layer 1 (local streets) → find exact location
+```
+
+HNSW does the same with vectors:
+```
+Layer 3 (few nodes, long jumps)   → get into right neighbourhood
+Layer 2 (more nodes)              → narrow down
+Layer 1 (all nodes, small steps)  → find exact nearest neighbours
+```
+
+Result: checks ~50-100 vectors instead of 1 million. Still finds closest match.
+
+---
+
+### 🆚 ChromaDB vs Pinecone
+
+| | ChromaDB | Pinecone |
+|--|----------|---------|
+| Runs | Local laptop | Cloud |
+| Cost | Free | Free tier + paid |
+| Setup | pip install | API key needed |
+| Speed | Fast for small data | Fast for millions |
+| DocuMind usage | Weeks 1 & 2 | Week 3 deployment |
+
+---
+
+### 🆚 Vector DB vs Regular DB
+
+| | Regular DB | Vector DB |
+|--|-----------|----------|
+| Stores | Rows, exact values | Vectors + metadata |
+| Queries | Exact match, range | Similarity search |
+| Index type | B-tree | HNSW |
+| Use case | Transactions, user data | Semantic search, RAG |
+
+---
+
+### 🧪 ChromaDB Experiment Results
+
+**Test 1:** "Where is the Eiffel Tower?"
+```
+Rank 1: Eiffel Tower chunk ✅
+Rank 2: Paris capital chunk ✅
+Rank 3: Louvre chunk — both Paris landmarks in vector space
+```
+
+**Test 2:** "Which city has the famous iron structure?"
+```
+Zero shared words with correct answer.
+Rank 1: Eiffel Tower chunk ✅ — meaning matched despite no keywords
+```
+
+**Key insight:** Vector search is semantic, not syntactic.
+Same meaning = geometrically close vectors = retrieved correctly.
+This is why RAG works on real documents.
+
+**Sentence Transformer used:** all-MiniLM-L6-v2
+```
+all    = trained on all sentence types
+MiniLM = small, fast version of larger model
+L6     = 6 transformer layers
+v2     = version 2
+Output = 384 dimensions per sentence
+Size   = ~80MB, runs locally, no GPU needed
+```
+
+---
+
+## Day 3 — Chunking Strategies
+**Date:** Day 3 of 21
+
+---
+
+### ✂️ Why Chunking Exists
+
+**Problem 1 — Retrieval precision:**
+One giant vector = one giant meaning = entire doc retrieved every time.
+No precision. No relevance. Just noise.
+
+**Problem 2 — Context window limits:**
+```
+50 pages ≈ 35,000 tokens
+Mistral 7B context window = 8,000 tokens
+It literally cannot fit. Breaks completely.
+```
+
+**Problem 3 — LLM focus:**
+Too much irrelevant text = LLM loses focus = worse answers.
+Needle in a haystack problem.
+
+**The pizza analogy:**
+```
+Chunks too large  → retrieves too much, LLM confused
+Chunks too small  → loses context, incomplete meaning
+Just right        → precise retrieval, complete thought preserved
+```
+
+---
+
+### 📦 The 4 Chunking Strategies
+
+**Strategy 1 — Fixed Size:**
+Splits every N characters. No respect for sentence boundaries.
+```
+CRIME SCENE from experiment:
+Chunk 1 ended:   "Today it i"
+Chunk 2 started: "s the most visited..."
+→ "it is" split into "it i" + "s the" — mid word violation 💀
+
+Chunk 3 ended:   "and Scik"
+Chunk 4 started: "it-learn."
+→ "Scikit-learn" destroyed 💀
+```
+Verdict: Never use in production. Educational only.
+
+---
+
+**Strategy 2 — Recursive Character Splitting:**
+Tries to split at natural boundaries in priority order:
+```
+\n\n (paragraph) → \n (line) → ". " (sentence) → " " (word) → character
+```
+```
+Experiment result:
+Chunk 1: Entire Eiffel Tower + ML section (497 chars)
+Chunk 2: Python section (175 chars)
+→ Respected paragraph boundaries ✅
+→ No broken words or sentences ✅
+```
+Verdict: Gold standard default for 80% of use cases.
+
+---
+
+**Strategy 3 — Sliding Window:**
+Fixed size chunks with intentional overlap.
+```
+Chunk size = 500, Overlap = 100
+Chunk 1: words 1-500
+Chunk 2: words 401-900  ← 100 word overlap
+Chunk 3: words 801-1300 ← 100 word overlap
+```
+Why overlap? Answer might sit at chunk boundary.
+Without overlap → critical fact split across two chunks, neither retrieved fully.
+With overlap → boundary content appears in both chunks → always retrievable.
+Verdict: Best for legal, medical, contracts where boundary info is critical.
+
+---
+
+**Strategy 4 — Semantic Chunking:**
+Splits when cosine similarity between consecutive sentences drops below threshold.
+```
+Threshold experiment results:
+0.1 → 3 chunks  — only split on MASSIVE meaning shifts ✅
+0.3 → 5 chunks  — good balance, sweet spot for most docs ✅
+0.6 → 11 chunks — over-splits, every sentence separate ❌
+```
+
+**What threshold means:**
+```
+Low (0.1)  → "only split if topics are VERY different"
+             → stays together more → fewer chunks
+High (0.6) → "split even if slightly different"
+             → splits aggressively → too many chunks
+```
+
+Verdict: Best for long mixed-topic docs. Expensive. Tune threshold carefully.
+
+---
+
+### 🆚 Strategy Comparison
+
+| Strategy | Splits on | Overlap | Best for | Never for |
+|----------|-----------|---------|----------|-----------|
+| Fixed Size | N chars | No | Nothing in prod | Everything |
+| Recursive | Natural boundaries | Optional | General docs | Tables, code |
+| Sliding Window | Fixed + overlap | Yes | Legal, medical | Storage-sensitive |
+| Semantic | Meaning shift | No | Long mixed docs | Short docs, speed |
+
+---
+
+### 🎯 Interview Answer — "How do you chunk?"
+
+> "It depends on document type. Recursive character splitting
+> as the default for general documents, sliding window for
+> boundary-critical legal and medical docs, semantic chunking
+> for long mixed-topic research papers. I tune chunk size and
+> overlap based on retrieval precision experiments."
+
+---
+
+*"Never write code before you can explain what it does."*
+
+*The 5 Laws:*
+*1. WHY before HOW*
+*2. Explain before Execute*
+*3. Learn it → Log it → Lock it*
+*4. No Blind Copy-Paste. Ever.*
+*5. Ship Ugly, Refine Later*
