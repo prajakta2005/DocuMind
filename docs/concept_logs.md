@@ -421,3 +421,145 @@ More token-efficient, LLMs trained on Markdown, human readable.
 
 **Pipeline position:**
 PDF → pdf_loader.py → table_extractor.py → chunker.py → embedder.py
+
+
+## Day 5 — Image Handling
+
+**Why images break naive RAG:**
+Sentence transformers only understand text.
+Images are invisible to the entire RAG pipeline without handling.
+
+**Two scenarios:**
+1. Image with text → OCR (pytesseract + Tesseract engine)
+   Reads text pixels → returns string
+   
+2. Image without text → BLIP captioning
+   Vision encoder reads image → text decoder generates description
+   "a line chart showing revenue growth from 2019 to 2023"
+
+**Why load BLIP at module level:**
+Loading takes ~5 seconds. Module level = loads once, reuses forever.
+Inside function = reloads every call = too slow.
+
+**Why skip images < 100x100px:**
+Tiny images are icons/decorations — not real content.
+Filtering them saves processing time and noise.
+
+**Auto-detection logic:**
+Run quick OCR → if > 20 chars detected → use OCR
+Otherwise → use BLIP captioning
+
+**Full pipeline now:**
+PDF → pdf_loader + table_extractor + image_handler → chunker → embedder
+Text + Tables + Images all converted to text → all searchable in ChromaDB
+
+
+## Tesseract vs pytesseract
+
+### Tesseract
+- The actual OCR engine  
+- Built by Google  
+- Written in C++  
+- Does the real work of converting pixels → text  
+- Installed as a system program (like installing Chrome)  
+
+---
+
+### pytesseract
+- A Python wrapper around Tesseract  
+- Written in Python  
+- Does **NOT** perform OCR itself  
+- Simply sends the image to Tesseract and returns the extracted text  
+- Installed via `pip`  
+
+## Tokenization Example
+
+**Original Sentence:**  
+"The cat sat on the mat"
+
+**After Tokenization:**  
+[CLS] The cat sat on the mat [SEP]
+
+## Vision-Language Model Architecture
+
+### Part 1 — Vision Encoder (ViT — Vision Transformer)
+- Looks at the image  
+- Breaks the image into patches (like chunks but for images)  
+- Converts each patch into a vector  
+- Builds a visual understanding of the image  
+
+---
+
+### Part 2 — Text Decoder (BERT-based)
+- Takes the visual vectors  
+- Generates natural language descriptions word by word  
+- Example:  
+  "a bar chart showing..." → "revenue" → "growth" → ...
+
+
+  ## ViT and BERT Explained
+
+### 🔹 ViT — Vision Transformer
+**Full Form:** Vision Transformer  
+
+- A model used to **understand images**  
+- Uses the **Transformer architecture** (instead of CNNs)  
+- Splits an image into small patches (e.g., 16×16 blocks)  
+- Treats each patch like a “token” (similar to words in a sentence)  
+- Uses **self-attention** to understand relationships between patches  
+
+**Simple Explanation:**  
+ViT = "reads images like a sentence of patches"  
+
+---
+
+### 🔹 BERT — Bidirectional Encoder Representations from Transformers
+
+- A model used to **understand text**  
+- Developed by Google  
+- Reads text **in both directions (left and right context)**  
+- Strong at tasks like:
+  - Text understanding  
+  - Question answering  
+  - Sentence similarity  
+
+**Simple Explanation:**  
+BERT = "deep understanding of language context"  
+
+---
+
+## 🔥 Key Differences
+
+| Feature | ViT | BERT |
+|--------|-----|------|
+| Input | Image patches | Words / tokens |
+| Domain | Computer Vision | Natural Language Processing |
+| Role | Understand images | Understand text |
+
+---
+
+## 🧠 How They Work Together
+
+- **ViT** → understands what’s in the image  
+- **BERT (or similar decoder)** → converts that understanding into human language  
+
+**Day 5 Experiment Results:**
+PDF: Student assignment with code screenshots
+
+- Small images (338x22, 160x55) correctly skipped — decorations ✅
+- Large images (678x940, 700x908) processed ✅
+- OCR correctly extracted Python code from screenshots ✅
+- OCR extracted ML results: "Logistic Regression Accuracy: 0.7467" ✅
+
+Key insight: Data trapped in images is now searchable.
+User can ask "what was the accuracy?" and DocuMind finds it
+even though it was inside an image, not text.
+
+CLS token = classification token, added at start, represents whole sequence
+SEP token = separator token, added at end, separates sequences
+skip_special_tokens=True removes these from output captions
+
+Tesseract = OCR engine (C++, does actual work)
+pytesseract = Python wrapper (talks to Tesseract)
+BLIP = Vision-Language model, 129M image-text pairs training
+     = Vision Encoder (ViT) + Text Decoder (BERT-based)
