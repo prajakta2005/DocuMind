@@ -398,3 +398,26 @@ Verdict: Best for long mixed-topic docs. Expensive. Tune threshold carefully.
 *3. Learn it → Log it → Lock it*
 *4. No Blind Copy-Paste. Ever.*
 *5. Ship Ugly, Refine Later*
+
+## Day 4 — PDF & Table Ingestion
+
+**Why ingestion exists:**
+PDF is a visual format, not text. Raw extraction destroys structure.
+Ingestion = converting visual format into structured text Python can use.
+
+**Why tables need special treatment:**
+Raw text extraction: "Q1 Q2 Q3 Q4 Revenue 100 200 150 300"
+→ structure destroyed, relationships lost
+Markdown extraction: | | Q1 | Q2 | → structure preserved ✅
+
+**Why Markdown over JSON for tables:**
+More token-efficient, LLMs trained on Markdown, human readable.
+
+**PyMuPDF (fitz):** Low level, fast, clean PDFs, find_tables() built in
+**Unstructured.io:** High level, handles messy real-world docs
+
+**Metadata matters:** page_number + source = citation ability later
+"Answer found on page 3 of contract.pdf" requires this metadata.
+
+**Pipeline position:**
+PDF → pdf_loader.py → table_extractor.py → chunker.py → embedder.py
