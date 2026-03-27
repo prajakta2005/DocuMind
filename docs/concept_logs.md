@@ -563,3 +563,34 @@ Tesseract = OCR engine (C++, does actual work)
 pytesseract = Python wrapper (talks to Tesseract)
 BLIP = Vision-Language model, 129M image-text pairs training
      = Vision Encoder (ViT) + Text Decoder (BERT-based)
+
+**What embedder.py does:**
+Takes all chunks (text + table + image) → converts to vectors
+→ stores in persistent ChromaDB with metadata
+
+**Why same model for all content types:**
+All content is already converted to text before embedding.
+Same model = same vector space = comparable vectors.
+Different models = different spaces = meaningless comparison.
+
+**Why PersistentClient over Client():**
+Client() = in-memory, dies on restart
+PersistentClient = saves to disk, survives restarts
+Production always needs persistence.
+
+**Why cosine similarity over dot product:**
+Cosine measures angle between vectors = semantic similarity
+Dot product measures magnitude too = not what we want for RAG
+
+**Why UUID over sequential IDs:**
+Sequential breaks on incremental ingestion
+UUID = always unique regardless of order
+
+**Why batch_size=32:**
+All at once = memory overflow
+One by one = too slow
+Batches = balance
+
+**Week 1 pipeline complete:**
+PDF → pdf_loader → table_extractor → chunker → embedder → ChromaDB
+Every word, table, image in a PDF is now searchable ✅
