@@ -594,3 +594,17 @@ Batches = balance
 **Week 1 pipeline complete:**
 PDF → pdf_loader → table_extractor → chunker → embedder → ChromaDB
 Every word, table, image in a PDF is now searchable ✅
+
+**Day 6 Experiment Results:**
+PDF: sample-tables.pdf (11 pages)
+- 25 text chunks extracted
+- Tables extracted as Markdown ✅
+- Full pipeline ran end to end ✅
+
+Distance observations:
+- Rank 1 distance: 0.6987, Rank 2: 0.73
+- Higher distances = vague question, no direct answer in doc
+- This proves WHY reranking is needed — Week 2 fixes this
+
+Week 1 pipeline complete:
+PDF → text + tables + images → chunks → vectors → ChromaDB ✅
